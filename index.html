@@ -25,10 +25,12 @@
             "esri/layers/GraphicsLayer",
             "esri/geometry/Point",
             "esri/request",
+            "esri/widgets/LayerList",
+            "esri/widgets/BasemapToggle",
             "dojo/domReady!"
-        ], function(Map, MapView, Graphic, GraphicsLayer, Point, esriRequst) {
+        ], function(Map, MapView, Graphic, GraphicsLayer, Point, esriRequst, LayerList, BasemapToggle) {
 
-            let lat = 47.25498;
+            let lat = 48;
             let lon = -122.43191
 
 
@@ -36,70 +38,150 @@
             basemap: "topo"
             });
 
-            var graphicsLayer = new GraphicsLayer();
-            map.add(graphicsLayer);
-
+            
             let view = new MapView({
             container: "viewDiv",
             map: map,
-            zoom: 9,
+            zoom: 8,
             center: [lon, lat] // longitude, latitude
             });
 
-            var markerSymbol = {
-                "color":[
-                    226,
-                    119,
-                    40,
-                    255
-                ],
-                "size":12,
-                "angle":0,
-                "xoffset":0,
-                "yoffset":0,
-                "type":"esriSMS",
-                "style":"esriSMSCircle",
-                "outline":{
-                    "color":[
-                        255,
-                        255,
-                        255,
-                        255
-                    ],
-                    "width":1.5,
-                    "type":"esriSLS",
-                    "style":"esriSLSSolid"
-                }
-                };
+            var basemapToggle = new BasemapToggle({
+                view: view,
+                nextBasemap: "satellite" 
+            });
+            view.ui.add(basemapToggle, {
+                position: 'top-right'
+            })
 
-            view.when(function () {
-                esriRequst('json/pre1998geo.json', {
-                    responseType: 'json',
-                }).then(function (response) {
-                    console.log(response.data)
-                    return response.data.features.map(function(x) {
-                        var c = x.geometry.coordinates;
-                        return Graphic.fromJSON({
-                        geometry: {
-                            x: c[0],
-                            y: c[1],
-                            spatialReference: { wkid: 4326 }
-                        },
-                        symbol: markerSymbol,
-                        attributes: x.properties,
-                        popupTemplate: {
-                            title: 'Study ID: {StudyID}',                          
-                            description: '{ChemicalName}: {ChemicalConc} {ReportedUOM}<br>Exceedance: {Exceedance}<br>Date: {SamplingDate}'
-                        }
-                        });
-                    });
-                }).then(function (features) {
-                    features.map(function(x) {
-                        graphicsLayer.add(x);
-                    });
-                });            
-            });                    
+            var layerList = new LayerList({
+                view: view
+            });
             
+            view.ui.add(layerList, {
+                position: "bottom-right"
+            });
+
+            layers = [
+                {
+                    title: 'pre 1998',
+                    graphicsLayer: new GraphicsLayer({title: 'pre1998'}),
+                    path: 'json/pre1998geo.json',
+                    symbol: {
+                        "color":[226,119,40,255],
+                        "size":12,
+                        "type":"esriSMS",
+                        "style":"esriSMSCircle",
+                        "outline":{
+                            "color":[255,255,255,255],
+                            "width":1.5,
+                            "type":"esriSLS",
+                            "style":"esriSLSSolid"
+                        }
+                    }
+                },
+                {
+                    title: '1998-2008',
+                    graphicsLayer: new GraphicsLayer({title: '1998-2008'}),
+                    path: 'json/post1998oPre2008.json',
+                    symbol: {
+                        "type": "esriSMS",
+                        "color": [
+                            223,
+                            115,
+                            255,
+                            255
+                        ],
+                        "angle": 0,
+                        "xoffset": 0,
+                        "yoffset": 0,
+                        "size": 12,
+                        "style": "esriSMSSquare",
+                        "outline": {
+                            "type": "esriSLS",
+                            "color": [
+                                0,
+                                0,
+                                0,
+                                255
+                            ],
+                            "width": 0.75,
+                            "style": "esriSLSSolid"
+                        }
+                    }
+                },
+                {
+                    title: 'post 2008',
+                    graphicsLayer: new GraphicsLayer({title: 'post 2008'}),
+                    path: 'json/post2008.json',
+                    symbol: {
+                        "type": "esriSMS",
+                        "color": [
+                            230,
+                            152,
+                            0,
+                            255
+                        ],
+                        "angle": 0,
+                        "xoffset": 0,
+                        "yoffset": 0,
+                        "size": 12,
+                        "style": "esriSMSDiamond",
+                        "outline": {
+                            "type": "esriSLS",
+                            "color": [
+                                0,
+                                0,
+                                0,
+                                255
+                            ],
+                            "width": 0.75,
+                            "style": "esriSLSSolid"
+                        }
+                    }
+                }
+            ]
+
+            
+            view.when(function () {
+                layers.forEach(function(layer){
+                    esriRequst(layer.path, {
+                        responseType: 'json',
+                    }).then(function (response) {
+                    
+                   
+                        return response.data.features.map(function(x) {
+                    
+                            var c = x.geometry.coordinates;
+                            // let date = Date(x.properties.SamplingDate);
+                            return Graphic.fromJSON({
+                    
+                            geometry: {
+                                x: c[0],
+                                y: c[1],
+                                spatialReference: { wkid: 4326 }
+                            },
+                            symbol: layer.symbol,
+                            attributes: x.properties,
+                            popupTemplate: {
+                                title: 'Study ID: {StudyID}',                          
+                                // description: '{ChemicalName}: {ChemicalConc} {ReportedUOM}<br>Exceedance: {Exceedance}<br>Date: ' + date
+                                description: '{ChemicalName}: {ChemicalConc} {ReportedUOM}<br>Exceedance: {Exceedance}<br>Date: {SamplingDate}'
+                            }
+                            });
+                        });
+                    }).then(function (features) {
+                    
+                        features.map(function(x) {
+                            layer.graphicsLayer.add(x);
+                        });
+
+                        map.add(layer.graphicsLayer)
+                                                
+                    });      
+                })
+                      
+            });      
 
         });
     </script>
